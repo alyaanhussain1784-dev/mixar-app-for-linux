@@ -1,26 +1,39 @@
-# SPDX-FileCopyrightText: 2026 Adeveda Enterprises Private Limited
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
-name: REUSE Compliance
+name: Build Mixar Linux Client
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - task/open-source
-
-permissions:
-  contents: read
+  workflow_dispatch: # Allows you to trigger the build manually
 
 jobs:
-  reuse:
-    name: REUSE lint
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout
+      - name: Checkout Source Code with Submodules
         uses: actions/checkout@v4
+        with:
+          submodules: recursive # Mandated to pull the underlying Blender 5.2 engine code
 
-      - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v5
+      - name: Install Development Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git python3 python3-pip rsync build-essential cmake \
+            libx11-dev libxxf86vm-dev libxcursor-dev libxi-dev libxrandr-dev \
+            libxinerama-dev libegl-dev libwayland-dev wayland-protocols \
+            libxkbcommon-dev libdbus-1-dev
+
+      - name: Grant and Run Mixar build.sh Script
+        run: |
+          # 1. Initialize the project mapping
+          git submodule update --init --recursive
+          
+          # 2. Provide execution permissions to the native Unix script
+          chmod +x ./scripts/unix/build.sh
+          
+          # 3. Execute the build using the exact repository script
+          ./scripts/unix/build.sh
+
+      - name: Upload Finished Program Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixar-linux-build
+          path: ./build/
+          retention-days: 5
